@@ -1,0 +1,47 @@
+name: Snyk IaC Security Scan
+
+on:
+  push:
+
+jobs:
+  snyk_iac:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v2-beta
+        with:
+          node-version: '14'
+
+      - name: install deps
+        run: yarn
+        if: steps.cache.outputs.cache-hit != 'true'
+        working-directory: scripts
+
+      - name: install snyk
+        run: yarn global add snyk
+
+      - name: Run Snyk to check Kubernetes manifest file for issues
+        working-directory: scripts
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run:  yarn run snyk
+
+      - name: Parse snyk output file
+        if: ${{ failure() }}
+        working-directory: scripts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run:  yarn run parse
+
+      # - name: Update status as success
+      #   # if: steps.snyk-iac.outcome == 'success'
+      #   if: ${{ success() }}
+      #   uses: ouzi-dev/commit-status-updater@v1.1.0
+      #   with:
+      #     token: ${{ secrets.COMMIT_TOKEN }}
+      #     status: success
+      #     description: Passed Snyk IaC Security tests
+      #     successComment: Passed Snyk IaC Security tests
